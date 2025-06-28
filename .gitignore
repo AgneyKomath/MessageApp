@@ -1,0 +1,21 @@
+# Ignore node_modules in both frontend and backend
+messaging-app-frontend/node_modules/
+messaging-app-backend/node_modules/
+
+messaging-app-backend/tests/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env files
+messaging-app-frontend/.env
+messaging-app-backend/.env
+.env
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+
