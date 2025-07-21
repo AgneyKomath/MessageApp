@@ -8,6 +8,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
 const convoRoutes = require("./routes/conversations");
 const messageRoutes = require("./routes/messages");
+const keyRoutes = require("./routes/keys");
 
 const { verifyJWT, verifySocketJWT } = require("./middleware/authMiddleware");
 
@@ -16,6 +17,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" },
 });
+app.set("io", io);
 
 //connect mongoDB
 connectDB();
@@ -30,12 +32,14 @@ app.use("/api/auth", authRoutes);
 //protected endpoints
 app.use("/api/conversations", verifyJWT, convoRoutes);
 app.use("/api/messages", verifyJWT, messageRoutes);
+app.use("/api/keys", verifyJWT, keyRoutes);
 
 //WebSocket
 io.use(verifySocketJWT);
 io.on("connection", (socket) => {
     const userId = socket.user.id;
     console.log(`User connected: ${userId}`);
+    socket.join(userId);
 
     //join conversation room
     socket.on("joinConversation", (convoId) => {
@@ -44,13 +48,14 @@ io.on("connection", (socket) => {
     });
 
     //receive a message
-    socket.on("sendMessage", async ({ conversationId, text }) => {
+    socket.on("sendMessage", async ({ conversationId, iv, data }) => {
         try {
             const Message = require("./models/Message");
             const msg = await Message.create({
                 conversation: conversationId,
                 sender: userId,
-                text,
+                iv,
+                data
             });
 
             const populated = await msg.populate("sender", "username");

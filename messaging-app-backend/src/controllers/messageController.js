@@ -14,13 +14,14 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
     const userId = req.user.id;
     const { convoId } = req.params;
-    const { text } = req.body;
+     const { iv, data } = req.body;
 
     try {
         const msg = await Message.create({
             conversation: convoId,
             sender: userId,
-            text,
+            iv,
+            data
         });
         const populated = await msg.populate("sender", "username");
         res.status(201).json(populated);

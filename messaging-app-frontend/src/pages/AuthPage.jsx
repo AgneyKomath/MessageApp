@@ -43,7 +43,7 @@ export default function AuthPage() {
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.msg || "Authentication failed");
-            login(data.token, data.user);
+            await login(data.token, data.user);
             navigate("/home", { replace: true });
         } catch (err) {
             setError(err.message);

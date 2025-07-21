@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useContext } from "react";
+import { loadOrGenerateKeyPair } from "../utils/e2ee";
 
 const AuthContext = createContext();
 
@@ -12,11 +13,23 @@ export function AuthProvider({ children }) {
         return storedUser ? JSON.parse(storedUser) : null;
     });
 
-    const login = (newToken, userData) => {
+    const login = async (newToken, userData) => {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(userData));
         setToken(newToken);
         setUser(userData);
+
+        const { publicKey } = await loadOrGenerateKeyPair();
+        const pubJwk = await crypto.subtle.exportKey("jwk", publicKey);
+
+        await fetch("/api/keys", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${newToken}`,
+            },
+            body: JSON.stringify({ userId: userData.id, pubJwk }),
+        });
     };
 
     const logout = () => {

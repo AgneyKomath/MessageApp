@@ -12,10 +12,8 @@ const MessageSchema = new mongoose.Schema(
             ref: "User",
             required: true,
         },
-        text: {
-            type: String,
-            required: true,
-        },
+        iv: { type: [Number], required: true },
+        data: { type: [Number], required: true },
     },
     { timestamps: true }
 );

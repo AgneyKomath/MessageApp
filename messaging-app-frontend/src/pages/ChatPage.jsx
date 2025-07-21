@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { useAuth } from "../contexts/AuthContext";
+import { loadOrGenerateKeyPair, deriveAesKey, encryptText, decryptText } from "../utils/e2ee";
 
 export default function ChatPage() {
     const { id: convoId } = useParams();
     const navigate = useNavigate();
     const { token, user, logout } = useAuth();
 
+    const [aesKey, setAesKey] = useState(null);
     const [otherUser, setOtherUser] = useState(null);
+    const [rawMessages, setRawMessages] = useState([]);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [error, setError] = useState("");
@@ -17,21 +20,58 @@ export default function ChatPage() {
 
     //fetch old messages
     useEffect(() => {
-        const fetchMessages = async () => {
+        const fetchRaw = async () => {
             try {
                 const res = await fetch(`/api/messages/${convoId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!res.ok) throw new Error("Could not load messages for some reason idk");
+                if (!res.ok) throw new Error("Could not load messages");
                 const data = await res.json();
-                setMessages(data);
-                bottomRef.current?.scrollIntoView({ behavior: "auto" });
+                setRawMessages(data);
             } catch (err) {
                 setError(err.message);
             }
         };
-        fetchMessages();
+        fetchRaw();
     }, [convoId, token]);
+
+    useEffect(() => {
+        if (!aesKey || rawMessages.length === 0) return;
+
+        const decryptAll = async () => {
+            const decryptedTexts = await Promise.all(
+                rawMessages.map((m) => decryptText(aesKey, m))
+            );
+            const withPlain = rawMessages.map((m, i) => ({
+                ...m,
+                text: decryptedTexts[i],
+            }));
+            setMessages(withPlain);
+            bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        };
+
+        decryptAll();
+    }, [aesKey, rawMessages]);
+
+    //load or generate keypair and derive AES key
+    // export & upload public key, fetch peer’s JWK, derive AES key
+    useEffect(() => {
+        if (!otherUser) return;
+        let mounted = true;
+        (async () => {
+            const { privateKey } = await loadOrGenerateKeyPair();
+            const res = await fetch(`/api/keys/${otherUser?._id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error("Could not fetch peer public key");
+            const { pubJwk: theirJwk } = await res.json();
+            const aes = await deriveAesKey(privateKey, theirJwk);
+            if (mounted) setAesKey(aes);
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, [otherUser, token]);
 
     //find other user
     useEffect(() => {
@@ -69,26 +109,42 @@ export default function ChatPage() {
             socket.emit("joinConversation", convoId);
         });
 
-        socket.on("messageReceived", (msg) => {
-            setMessages((prev) => [...prev, msg]);
-        });
-
         return () => {
             socket.disconnect();
         };
     }, [convoId, token]);
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ beahvior: "smooth" });
+        // don’t start listening until we can decrypt
+        if (!aesKey) return;
+
+        const socket = socketRef.current;
+        const handler = async (payload) => {
+            const text = await decryptText(aesKey, payload);
+            setMessages((prev) => [...prev, { ...payload, text }]);
+        };
+
+        // register the listener
+        socket.on("messageReceived", handler);
+
+        // cleanup on unmount or aesKey change
+        return () => {
+            socket.off("messageReceived", handler);
+        };
+    }, [aesKey]);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    const handleSend = (e) => {
+    const handleSend = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || !aesKey) return;
 
+        const cipher = await encryptText(aesKey, input.trim());
         socketRef.current.emit("sendMessage", {
             conversationId: convoId,
-            text: input.trim(),
+            ...cipher,
         });
         setInput("");
     };

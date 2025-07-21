@@ -27,6 +27,14 @@ exports.createConversation = async (req, res) => {
             });
         }
         convo = await convo.populate("participants", "username");
+
+        const io = req.app.get("io");
+        const otherId = convo.participants
+            .map((u) => u._id.toString())
+            .find((id) => id !== req.user.id);
+
+        io.to(otherId).emit("newConversation", convo);
+
         res.status(201).json(convo);
     } catch (err) {
         console.error(err);
@@ -37,7 +45,9 @@ exports.createConversation = async (req, res) => {
 exports.getConversations = async (req, res) => {
     const userId = req.user.id;
     try {
-        const convos = await Conversation.find({ participants: userId }).sort({ updatedAt: -1 }).populate("participants", "username");
+        const convos = await Conversation.find({ participants: userId })
+            .sort({ updatedAt: -1 })
+            .populate("participants", "username");
         res.json(convos);
     } catch (err) {
         console.error(err);
