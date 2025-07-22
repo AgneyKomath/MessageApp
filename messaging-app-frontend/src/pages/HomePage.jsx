@@ -8,8 +8,12 @@ export default function HomePage() {
     const navigate = useNavigate();
     const [convos, setConvos] = useState([]);
     const [error, setError] = useState();
+    const [users, setUsers] = useState([]);
+    const [showPicker, setShowPicker] = useState(false);
     const socket = useRef();
+    const pickerRef = useRef();
 
+    // set socket
     useEffect(() => {
         socket.current = io("http://localhost:5000", {
             auth: { token },
@@ -23,6 +27,7 @@ export default function HomePage() {
         return () => socket.current.disconnect();
     }, [token]);
 
+    //fetch convos
     useEffect(() => {
         const fetchConvos = async () => {
             try {
@@ -41,9 +46,36 @@ export default function HomePage() {
         fetchConvos();
     }, [token]);
 
-    const handleNewConvo = async () => {
-        const otherUserId = window.prompt("Enter the ID of the user you want to chat with:");
-        if (!otherUserId) return;
+    //fetch users
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const res = await fetch("/api/users", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                if (!res.ok) throw new Error("Failed to Load Users");
+                const data = await res.json();
+                setUsers(data);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+        fetchUsers();
+    }, [token]);
+
+    useEffect(() => {
+        const handleClick = (e) => {
+            if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+                setShowPicker(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
+
+    const handleNewConvo = async (otherUserId) => {
         try {
             const res = await fetch("/api/conversations", {
                 method: "POST",
@@ -69,23 +101,50 @@ export default function HomePage() {
     return (
         <div className="min-h-screen flex flex-col">
             {/* Top bar */}
-            <header className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between">
+            <header className="relative bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                    <h1 className="text-xl font-semibold">Agney's Chat App</h1>
-                    {user && <p className="text-sm opacity-75">Signed in as {user.username}</p>}
+                    <h1 className="text-xl font-semibold">ChitChat</h1>
+                    {user && <p className="text-sm opacity-75"> User: {user.username}</p>}
                 </div>
-                <button
-                    onClick={handleNewConvo}
-                    className="ml-4 bg-white text-blue-600 px-3 py-1 rounded hover:bg-gray-100 transition"
-                >
-                    + New Chat
-                </button>
-                <button
-                    onClick={handleLogout}
-                    className="text-white border border-white/40 hover:border-white hover:bg-white hover:text-black px-4 py-1.5 rounded-md transition duration-100"
-                >
-                    Logout
-                </button>
+
+                <div className="flex items-center space-x-2">
+                    {/* New Chat button and picker */}
+                    <div className="relative" ref={pickerRef}>
+                        <button
+                            onClick={() => setShowPicker((p) => !p)}
+                            className="text-white border border-white/40 hover:border-white hover:bg-white hover:text-black px-4 py-1.5 rounded-md transition duration-100"
+                        >
+                            New
+                        </button>
+                        {showPicker && (
+                            <div className="absolute right-0 mt-2 w-48 max-h-56 overflow-auto bg-white rounded shadow-lg z-10">
+                                {users.length > 0 ? (
+                                    users.map((u) => (
+                                        <div
+                                            key={u._id}
+                                            onClick={() => {
+                                                setShowPicker(false);
+                                                handleNewConvo(u._id);
+                                            }}
+                                            className="px-3 py-2 text-gray-800 hover:bg-gray-100 cursor-pointer"
+                                        >
+                                            {u.username}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="px-3 py-2 text-gray-500">No users</div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={handleLogout}
+                        className="text-white border border-white/40 hover:border-white hover:bg-white hover:text-black px-4 py-1.5 rounded-md transition duration-100"
+                    >
+                        Logout
+                    </button>
+                </div>
             </header>
 
             {/* Chat list */}

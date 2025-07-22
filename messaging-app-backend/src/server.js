@@ -9,6 +9,7 @@ const authRoutes = require("./routes/auth");
 const convoRoutes = require("./routes/conversations");
 const messageRoutes = require("./routes/messages");
 const keyRoutes = require("./routes/keys");
+const usersRoutes = require("./routes/users");
 
 const { verifyJWT, verifySocketJWT } = require("./middleware/authMiddleware");
 
@@ -33,6 +34,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/conversations", verifyJWT, convoRoutes);
 app.use("/api/messages", verifyJWT, messageRoutes);
 app.use("/api/keys", verifyJWT, keyRoutes);
+app.use("/api/users", verifyJWT, usersRoutes);
 
 //WebSocket
 io.use(verifySocketJWT);

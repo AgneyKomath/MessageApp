@@ -1,6 +1,5 @@
-const express = require("express");
+const router = require("express").Router();
 const { createConversation, getConversations } = require("../controllers/conversationController");
-const router = express.Router();
 
 router.post("/", createConversation);
 

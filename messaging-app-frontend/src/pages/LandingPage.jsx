@@ -6,7 +6,7 @@ export default function LandingPage() {
             {/* Hero */}
             <header className="flex-grow bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center">
                 <div className="container mx-auto px-6 py-16 text-white">
-                    <h1 className="text-4xl md:text-6xl font-bold mb-4">Welcome to Agney's Chat App</h1>
+                    <h1 className="text-4xl md:text-6xl font-bold mb-4">Welcome to ChitChat</h1>
                     <p className="mb-8 text-lg md:text-xl max-w-2xl">
                         Real-time messaging made simple. Connect with friends and family instantly, on desktop or mobile.
                     </p>

@@ -1,6 +1,5 @@
-const express = require("express");
+const router = require("express").Router();
 const { getMessages, sendMessage } = require("../controllers/messageController");
-const router = express.Router();
 
 router.get("/:convoId", getMessages);
 
